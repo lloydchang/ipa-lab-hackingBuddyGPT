@@ -1,5 +1,7 @@
+# File: src/hackingBuddyGPT/utils/openai/openai_lib.py
 import instructor
 from typing import Dict, Union, Iterable, Optional
+from os import getenv
 
 from rich.console import Console
 from openai.types import CompletionUsage
@@ -16,6 +18,11 @@ from hackingBuddyGPT.utils.configurable import parameter
 from hackingBuddyGPT.capabilities import Capability
 from hackingBuddyGPT.capabilities.capability import capabilities_to_tools
 
+from vertexai.preview.tokenization import get_tokenizer_for_model
+
+# Uncomment the following to log debug output
+# import logging
+# logging.basicConfig(level=logging.DEBUG)
 
 @configurable("openai-lib", "OpenAI Library based connection")
 @dataclass
@@ -23,14 +30,23 @@ class OpenAILib(LLM):
     api_key: str = parameter(desc="OpenAI API Key")
     model: str = parameter(desc="OpenAI model name")
     context_size: int = parameter(desc="OpenAI model context size")
+    use_openrouter: bool = parameter(desc="Use OpenRouter API", default=False)
+    openrouter_base_url: str = parameter(desc="Base URL for OpenRouter API", default="https://openrouter.ai/api/v1")
     api_url: str = parameter(desc="URL of the OpenAI API", default="https://api.openai.com/v1")
     api_timeout: int = parameter(desc="Timeout for the API request", default=60)
     api_retries: int = parameter(desc="Number of retries when running into rate-limits", default=3)
 
     _client: openai.OpenAI = None
+    _tokenizer = None
 
     def init(self):
-        self._client = openai.OpenAI(api_key=self.api_key, base_url=self.api_url, timeout=self.api_timeout, max_retries=self.api_retries)
+        base_url = self.openrouter_base_url if self.use_openrouter else self.api_url
+        self._client = openai.OpenAI(api_key=self.api_key, base_url=base_url, timeout=self.api_timeout, max_retries=self.api_retries)
+
+        if self.use_openrouter and self.model.startswith("google/"):
+            self._tokenizer = get_tokenizer_for_model(self.model.replace("google/", ""))
+        elif not self.use_openrouter and self.model.startswith("gpt-"):
+            self._tokenizer = tiktoken.encoding_for_model(self.model)
 
     @property
     def client(self) -> openai.OpenAI:
@@ -58,21 +74,49 @@ class OpenAILib(LLM):
             tools = capabilities_to_tools(capabilities)
 
         tic = time.perf_counter()
+
+        # Log the request payload
+        #
+        # Uncomment the following to log debug output
+        # logging.debug(f"Request payload: {data}")
+
         response = self._client.chat.completions.create(
             model=self.model,
             messages=prompt,
             tools=tools,
         )
+
+        # Log response headers, status, and body
+        #
+        # Uncomment the following to log debug output
+        # logging.debug(f"Response Headers: {response.headers}")
+        # logging.debug(f"Response Status: {response.status_code}")
+        # logging.debug(f"Response Body: {response.text}")
+
         toc = time.perf_counter()
         message = response.choices[0].message
+
+        if self._tokenizer:
+            if self.use_openrouter and self.model.startswith("google/"):
+                tokens_query = self._tokenizer.count_tokens(prompt).total_tokens
+                tokens_response = self._tokenizer.count_tokens(message.content).total_tokens
+            elif not self.use_openrouter and self.model.startswith("gpt-"):
+                tokens_query = len(self._tokenizer.encode(prompt))
+                tokens_response = len(self._tokenizer.encode(message.content))
+            else:
+                tokens_query = 0  # Fallback if no tokenizer configured
+                tokens_response = 0
+        else:
+            tokens_query = 0
+            tokens_response = 0
 
         return LLMResult(
             message,
             str(prompt),
             message.content,
-            toc-tic,
-            response.usage.prompt_tokens,
-            response.usage.completion_tokens,
+            toc - tic,
+            tokens_query,
+            tokens_response,
         )
 
     def stream_response(self, prompt: Iterable[ChatCompletionMessageParam], console: Console, capabilities: Dict[str, Capability] = None) -> Iterable[Union[ChatCompletionChunk, LLMResult]]:
@@ -117,10 +161,16 @@ class OpenAILib(LLM):
                     for tool_call in delta.tool_calls:
                         if len(message.tool_calls) <= tool_call.index:
                             if len(message.tool_calls) != tool_call.index:
-                                print(f"WARNING: Got a tool call with index {tool_call.index} but expected {len(message.tool_calls)}")
+                                print(
+                                    f"WARNING: Got a tool call with index {tool_call.index} but expected {len(message.tool_calls)}")
                                 return
-                            console.print(f"\n\n[bold red]TOOL CALL - {tool_call.function.name}:[/bold red]")
-                            message.tool_calls.append(ChatCompletionMessageToolCall(id=tool_call.id, function=Function(name=tool_call.function.name, arguments=tool_call.function.arguments), type="function"))
+                            console.print(
+                                f"\n\n[bold red]TOOL CALL - {tool_call.function.name}:[/bold red]")
+                            message.tool_calls.append(ChatCompletionMessageToolCall(id=tool_call.id,
+                                                                                 function=Function(
+                                                                                     name=tool_call.function.name,
+                                                                                     arguments=tool_call.function.arguments),
+                                                                                 type="function"))
                         console.print(tool_call.function.arguments, end="")
                         message.tool_calls[tool_call.index].function.arguments += tool_call.function.arguments
                         outputs += 1
@@ -141,15 +191,39 @@ class OpenAILib(LLM):
             message.tool_calls = None
 
         toc = time.perf_counter()
+
+        # Token counting logic in stream_response (identical to get_response)
+        if self._tokenizer:
+            if self.use_openrouter and self.model.startswith("google/"):
+                tokens_query = self._tokenizer.count_tokens(prompt).total_tokens
+                tokens_response = self._tokenizer.count_tokens(message.content).total_tokens
+            elif not self.use_openrouter and self.model.startswith("gpt-"):
+                tokens_query = len(self._tokenizer.encode(prompt))
+                tokens_response = len(self._tokenizer.encode(message.content))
+            else:
+                tokens_query = 0  # Fallback if no tokenizer configured
+                tokens_response = 0
+        else:
+            tokens_query = 0
+            tokens_response = 0
+
         yield LLMResult(
             message,
             str(prompt),
             message.content,
-            toc-tic,
-            usage.prompt_tokens,
-            usage.completion_tokens,
-            )
+            toc - tic,
+            tokens_query,  # Correctly use calculated tokens
+            tokens_response,  # Correctly use calculated tokens
+        )
         pass
 
     def encode(self, query) -> list[int]:
-        return tiktoken.encoding_for_model(self.model).encode(query)
+        if self._tokenizer:
+            if self.use_openrouter and self.model.startswith("google/"):
+                return self._tokenizer.encode(query).tokens
+            elif not self.use_openrouter and self.model.startswith("gpt-"):
+                return self._tokenizer.encode(query)
+        return []  # Return an empty list if no tokenizer is available
+
+    def count_tokens(self, query) -> int:
+        return len(self.encode(query))
