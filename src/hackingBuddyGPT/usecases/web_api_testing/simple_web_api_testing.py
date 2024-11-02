@@ -8,6 +8,7 @@ from rich.panel import Panel
 from hackingBuddyGPT.capabilities import Capability
 from hackingBuddyGPT.capabilities.http_request import HTTPRequest
 from hackingBuddyGPT.capabilities.record_note import RecordNote
+from hackingBuddyGPT.capabilities.gemini_request import GeminiRequest
 from hackingBuddyGPT.usecases.agents import Agent
 from hackingBuddyGPT.usecases.web_api_testing.prompt_generation.information.prompt_information import PromptContext
 from hackingBuddyGPT.usecases.web_api_testing.utils.custom_datatypes import Prompt, Context
@@ -58,7 +59,7 @@ class SimpleWebAPITesting(Agent):
     )
 
     _prompt_history: Prompt = field(default_factory=list)
-    _context: Context = field(default_factory=lambda: {"notes": list()})
+    _context: Context = field(default_factory(lambda: {"notes": list()})
     _capabilities: Dict[str, Capability] = field(default_factory=dict)
     _all_http_methods_found: bool = False
 
@@ -125,7 +126,8 @@ class SimpleWebAPITesting(Agent):
         self._capabilities = {
             "submit_http_method": HTTPRequest(self.host),
             "http_request": HTTPRequest(self.host),
-            "record_note": RecordNote(notes)
+            "record_note": RecordNote(notes),
+            "gemini_request": GeminiRequest()
         }
 
     def perform_round(self, turn: int) -> None:

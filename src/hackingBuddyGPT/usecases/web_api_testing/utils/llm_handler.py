@@ -2,6 +2,7 @@ import re
 from typing import List, Dict, Any
 from hackingBuddyGPT.capabilities.capability import capabilities_to_action_model
 import openai
+from hackingBuddyGPT.capabilities.gemini_request import GeminiRequest
 
 
 class LLMHandler:
@@ -25,6 +26,7 @@ class LLMHandler:
         """
         self.llm = llm
         self._capabilities = capabilities
+        self._capabilities["gemini_request"] = GeminiRequest()
         self.created_objects: Dict[str, List[Any]] = {}
         self._re_word_boundaries = re.compile(r'\b')
 
