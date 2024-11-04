@@ -35,3 +35,5 @@ echo "Starting hackingBuddyGPT against a container..."
 echo
 
 wintermute LinuxPrivesc --llm.api_key=$OPENAI_API_KEY --llm.model=gemma2:2b --llm.context_size=8192 --conn.host=127.0.0.1 --conn.port 49153 --conn.username=lowpriv --conn.password=trustno1 --conn.hostname=test1 --llm.api_url=http://localhost:11434
+
+wintermute LinuxPrivesc --llm.api_key=$OPENAI_API_KEY --llm.model=gpt-4-turbo --llm.context_size=8192 --conn.host=127.0.0.1 --conn.port 49153 --conn.username=lowpriv --conn.password=trustno1 --conn.hostname=test1 --llm.api_url=http://localhost:8080
