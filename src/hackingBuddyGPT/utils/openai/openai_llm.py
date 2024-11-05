@@ -8,8 +8,8 @@ from hackingBuddyGPT.utils.configurable import configurable, parameter
 from hackingBuddyGPT.utils.llm_util import LLMResult, LLM
 
 # Uncomment the following to log debug output
-import logging
-logging.basicConfig(level=logging.DEBUG)
+# import logging
+# logging.basicConfig(level=logging.DEBUG)
 
 @configurable("openai-compatible-llm-api", "OpenAI-compatible LLM API")
 @dataclass
@@ -43,7 +43,7 @@ class OpenAIConnection(LLM):
         # Log the request payload
         #
         # Uncomment the following to log debug output
-        logging.debug(f"Request payload: {data}")
+        # logging.debug(f"Request payload: {data}")
 
         try:
             tic = time.perf_counter()
@@ -52,11 +52,17 @@ class OpenAIConnection(LLM):
             # Log response headers, status, and body
             #
             # Uncomment the following to log debug output
-            logging.debug(f"Response Headers: {response.headers}")
-            logging.debug(f"Response Status: {response.status_code}")
-            logging.debug(f"Response Body: {response.text}")
+            # logging.debug(f"Response Headers: {response.headers}")
+            # logging.debug(f"Response Status: {response.status_code}")
+            # logging.debug(f"Response Body: {response.text}")
 
-            if response.status_code == 429:
+            # if response.status_code == 429:
+            if (response.status_code == 429 or
+            #
+            # Response Body: {"code":400,"message":"genai send message error: googleapi: Error 429:","type":""}
+                (response.status_code == 400 and
+                any(error in response.json().get('message', '')
+                    for error in ['Error 429']))):
                 print(f"[RestAPI-Connector] running into rate-limits, waiting for {self.api_backoff} seconds")
                 time.sleep(self.api_backoff)
                 return self.get_response(prompt, retry=retry+1)

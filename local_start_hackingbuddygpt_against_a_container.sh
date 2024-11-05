@@ -20,14 +20,15 @@ pip install -e .
 
 # Step 2: Request an OpenAI API key
 
-echo
-echo 'Currently, May 2024, running hackingBuddyGPT with GPT-4-turbo against a benchmark containing 13 VMs (with maximum 20 tries per VM) cost around $5.'
-echo
-echo 'Therefore, running hackingBuddyGPT with GPT-4-turbo against containing a container with maximum 10 tries would cost around $0.20.'
-echo
-echo "Enter your OpenAI API key and press the return key:"
-read OPENAI_API_KEY
-echo
+# echo
+# echo 'Currently, May 2024, running hackingBuddyGPT with GPT-4-turbo against a benchmark containing 13 VMs (with maximum 20 tries per VM) cost around $5.'
+# echo
+# echo 'Therefore, running hackingBuddyGPT with GPT-4-turbo against containing a container with maximum 10 tries would cost around $0.20.'
+# echo
+# echo "Enter your OpenAI API key and press the return key:"
+# read OPENAI_API_KEY
+# echo
+# OPENAI_API_KEY=
 
 # Step 3: Start hackingBuddyGPT against a container
 
@@ -36,8 +37,8 @@ echo
 
 # ollama serve
 
-wintermute LinuxPrivesc --llm.api_key=$OPENAI_API_KEY --llm.model=gemma2:2b --llm.context_size=8192 --conn.host=127.0.0.1 --conn.port 49153 --conn.username=lowpriv --conn.password=trustno1 --conn.hostname=test1 --llm.api_url=http://localhost:11434
+# wintermute LinuxPrivesc --llm.api_key=$OPENAI_API_KEY --llm.model=llama3.1:latest --llm.context_size=8192 --conn.host=127.0.0.1 --conn.port 49152 --conn.username=lowpriv --conn.password=trustno1 --conn.hostname=test1 --llm.api_url=http://localhost:11434
 
-# docker run -p 8080:8080/tcp zhu327/gemini-openai-proxy
+# docker run -d -p 8080:8080/tcp zhu327/gemini-openai-proxy
 
-wintermute LinuxPrivesc --llm.api_key=$OPENAI_API_KEY --llm.model=gpt-4-turbo --llm.context_size=8192 --conn.host=127.0.0.1 --conn.port 49153 --conn.username=lowpriv --conn.password=trustno1 --conn.hostname=test1 --llm.api_url=http://localhost:8080
+wintermute LinuxPrivesc --llm.api_key=$OPENAI_API_KEY --llm.model=gpt-4-turbo --llm.context_size=8192 --conn.host=127.0.0.1 --conn.port 49152 --conn.username=lowpriv --conn.password=trustno1 --conn.hostname=test1 --llm.api_url=http://localhost:8080 --llm.api_backoff=60
