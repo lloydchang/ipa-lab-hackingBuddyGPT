@@ -92,7 +92,8 @@ EOF
 # Step 8: Start container and update inventory
 
 available_port=$(find_available_port "$BASE_PORT")
-start_container "ansible-ready-ubuntu" "$available_port"
+# Pass localhost as container_ip since we're running on macOS
+start_container "ansible-ready-ubuntu" "$available_port" "localhost"
 
 # Update the port in the inventory file
 sed -i '' "s/PLACEHOLDER/$available_port/" mac_ansible_hosts.ini

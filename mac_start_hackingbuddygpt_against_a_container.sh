@@ -42,7 +42,8 @@ echo
 echo "Starting hackingBuddyGPT against a container..."
 echo
 
-PORT=$(docker ps | grep ansible-ready-ubuntu | cut -d ':' -f2 | cut -d '-' -f1)
+# Extract port from mac_ansible_hosts.ini
+PORT=$(grep 'ansible_port=' mac_ansible_hosts.ini | cut -d '=' -f 2)
 
 # Gemini free tier has a limit of 15 requests per minute, and 1500 requests per day
 # Hence --max_turns 999999999 will exceed the daily limit

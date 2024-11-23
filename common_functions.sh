@@ -5,7 +5,7 @@ find_available_port() {
     local base_port="$1"
     local port=$base_port
     local max_port=65535
-    while ss -tuln | grep -q ":$port "; do
+    while netstat -tuln | grep -q ":$port "; do
         port=$((port + 1))
         if [ "$port" -gt "$max_port" ]; then
             echo "No available ports in the range $base_port-$max_port." >&2
