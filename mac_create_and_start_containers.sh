@@ -3,6 +3,9 @@
 # Purpose: Automates the setup of docker containers for local testing on Mac.
 # Usage: ./mac_create_and_start_containers.sh
 
+# Source common functions
+source ./common_functions.sh
+
 # Enable strict error handling
 set -e
 set -u
@@ -21,81 +24,17 @@ if [ ! -f tasks.yaml ]; then
     exit 1
 fi
 
-# Default value for base port
-# BASE_PORT=${BASE_PORT:-49152}
-
 # Default values for network and base port, can be overridden by environment variables
 DOCKER_NETWORK_NAME=${DOCKER_NETWORK_NAME:-192_168_65_0_24}
 DOCKER_NETWORK_SUBNET="192.168.65.0/24"
 BASE_PORT=${BASE_PORT:-49152}
 
-# Step 2: Define helper functions
-
-# Function to find an available port
-find_available_port() {
-    local base_port="$1"
-    local port=$base_port
-    local max_port=65535
-    while lsof -i :$port; do 
-        port=$((port + 1))
-        if [ "$port" -gt "$max_port" ]; then
-            echo "No available ports in the range $base_port-$max_port." >&2
-            exit 1
-        fi
-    done
-    echo $port
-}
 
 # Function to generate SSH key pair
 generate_ssh_key() {
     ssh-keygen -t rsa -b 4096 -f ./mac_ansible_id_rsa -N '' -q <<< y
     echo "New SSH key pair generated."
     chmod 600 ./mac_ansible_id_rsa
-}
-
-# Function to create and start docker container with SSH enabled
-start_container() {
-    local container_name="$1"
-    local port="$2"
-    local image_name="ansible-ready-ubuntu"
-
-    if docker --debug ps -aq -f name=${container_name}; then
-        echo "Container ${container_name} already exists. Removing it..." >&2
-        docker --debug stop ${container_name} || true
-        docker --debug rm ${container_name} || true
-    fi
-
-    echo "Starting docker container ${container_name} on port ${port}..." >&2
-
-    # Uncomment the following line to use a custom Docker network
-    # docker --debug run --restart=unless-stopped -it -d --network ${DOCKER_NETWORK_NAME} -p "${port}:22" --name ${container_name} -h ${container_name} ${image_name}
-    # The line is commented out because of the bugs in Docker Desktop on Mac causing hangs
-
-    # Alternatively, start Docker container with SSH enabled on localhost without using a custom Docker network
-    docker --debug run --restart=unless-stopped -it -d -p "${port}:22" --name ${container_name} -h ${container_name} ${image_name}
-
-    # Retrieve the IP address assigned by Docker
-    container_ip=$(docker --debug inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$container_name")
-
-    # Verify that container_ip is not empty
-    if [ -z "$container_ip" ]; then
-        echo "Error: Could not retrieve IP address for container $container_name." >&2
-        exit 1
-    fi
-
-    echo "Container ${container_name} started with IP ${container_ip} and port ${port}."
-
-    # Copy SSH public key to container
-    docker --debug cp ./mac_ansible_id_rsa.pub ${container_name}:/home/ansible/.ssh/authorized_keys
-    docker --debug exec ${container_name} chown ansible:ansible /home/ansible/.ssh/authorized_keys
-    docker --debug exec ${container_name} chmod 600 /home/ansible/.ssh/authorized_keys
-}
-
-# Function to check if SSH is ready on a container
-check_ssh_ready() {
-    local port="$1"
-    ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ./mac_ansible_id_rsa -p ${port} ansible@localhost exit 2>/dev/null
-    return $?
 }
 
 # Step 3: Verify docker Desktop
@@ -144,34 +83,6 @@ if ! docker --debug build -t ansible-ready-ubuntu -f codespaces_create_and_start
     exit 1
 fi
 
-# Step 6: Create a custom docker network if it does not exist
-
-# Commenting out this step because Docker bug and its regression that are clausing CLI to hang
-
-# There is a Docker bug that prevents creating custom networks on MacOS because it hangs
-
-# Bug: Docker CLI Hangs for all commands
-# https://github.com/docker/for-mac/issues/6940
-
-# Regression: Docker does not recover from resource saver mode
-# https://github.com/docker/for-mac/issues/6933
-
-# echo "Checking if the custom docker network '${DOCKER_NETWORK_NAME}' with subnet {DOCKER_NETWORK_SUBNET} exists"
-
-# if ! docker --debug network inspect ${DOCKER_NETWORK_NAME} >/dev/null 2>&1; then
-#     docker --debug network create --subnet="${DOCKER_NETWORK_SUBNET}" "${DOCKER_NETWORK_NAME}" || echo "Network creation failed, but continuing..."
-# fi
-
-# Unfortunately, the above just hangs like this:
-
-# + echo 'Checking if the custom docker network '\''192_168_65_0_24'\'' with subnet {DOCKER_NETWORK_SUBNET} exists'
-# Checking if the custom docker network '192_168_65_0_24' with subnet {DOCKER_NETWORK_SUBNET} exists
-# + docker --debug network inspect 192_168_65_0_24
-# + docker --debug network create --subnet=192.168.65.0/24 192_168_65_0_24
-
-# (It hangs here)
-
-# For now, the workaround is to use localhost as the IP address on a dynamic or private TCP port, such as 41952
 
 # Step 7: Generate SSH key
 generate_ssh_key

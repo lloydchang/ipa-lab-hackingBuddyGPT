@@ -3,6 +3,9 @@
 # Purpose: On a Mac, start hackingBuddyGPT against a container
 # Usage: ./mac_start_hackingbuddygpt_against_a_container.sh
 
+# Source common functions
+source ./common_functions.sh
+
 # Enable strict error handling for better script robustness
 set -e  # Exit immediately if a command exits with a non-zero status
 set -u  # Treat unset variables as an error and exit immediately
